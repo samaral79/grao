@@ -39,9 +39,10 @@ public partial class Main : Control
 
     static readonly string[] PresetKeys = { "", "reator", "circuito", "eletrico", "vulcao", "explosivos", "pessoas", "virus", "artificio", "natureza", "demo" };
     static readonly int[] Widths = { 320, 480, 640, 800 };
+    static readonly bool Mobile = OS.HasFeature("mobile");
     static readonly (string tool, string n, string c, string desc)[] Tools =
     {
-        ("erase", "Borracha", "#1a1c24", "Apaga. (O botão direito apaga sempre.)"),
+        ("erase", "Borracha", "#1a1c24", Mobile ? "Apaga." : "Apaga. (O botão direito apaga sempre.)"),
         ("heat", "Aquecer", "#e0502a", "Aquece o que está debaixo do pincel."),
         ("cool", "Arrefecer", "#3a9be0", "Arrefece o que está debaixo do pincel."),
         ("spark", "Faísca", "#bfe0ff", "Dá um choque: liga circuitos, acende explosivos e coisas inflamáveis. Clica num interruptor para o ligar ou desligar."),
@@ -50,9 +51,18 @@ public partial class Main : Control
     };
 
     // ---------- arranque ----------
+
     public override async void _Ready()
     {
         GetWindow().Title = "Grão";
+        if (Mobile)
+        {
+            // telemóvel: interface desenhada num ecrã pequeno e ampliada, para os botões serem tocáveis
+            var root = GetTree().Root;
+            root.ContentScaleMode = Window.ContentScaleModeEnum.CanvasItems;
+            root.ContentScaleAspect = Window.ContentScaleAspectEnum.Expand;
+            root.ContentScaleSize = new Vector2I(1200, 560);
+        }
         mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://world.gdshader") };
         var pal = new Vector3[NM]; var al = new float[NM]; var va = new float[NM];
         for (int i = 0; i < NM; i++) { pal[i] = new Vector3(Pal[i * 3], Pal[i * 3 + 1], Pal[i * 3 + 2]); al[i] = Alpha[i]; va[i] = Vary[i]; }
@@ -124,7 +134,7 @@ public partial class Main : Control
         // barra de cima
         var topP = new PanelContainer(); topP.AddThemeStyleboxOverride("panel", Box("#101219"));
         root.AddChild(topP);
-        var top = new HBoxContainer(); top.AddThemeConstantOverride("separation", 8); topP.AddChild(top);
+        var top = new HFlowContainer(); top.AddThemeConstantOverride("h_separation", 8); top.AddThemeConstantOverride("v_separation", 4); topP.AddChild(top);
         var logo = new Label { Text = "Grão" }; logo.AddThemeFontSizeOverride("font_size", 20);
         logo.AddThemeColorOverride("font_color", new Color("#ffb547")); top.AddChild(logo);
         pauseBtn = Btn(top, "Pausa", TogglePause);
@@ -145,7 +155,7 @@ public partial class Main : Control
         presetOpt.ItemSelected += i => { if (i > 0) { Hint(sim.Preset(PresetKeys[i])); presetOpt.Select(0); } };
         top.AddChild(presetOpt);
         Btn(top, "Limpar", () => { sim.Clear(); Hint(""); });
-        top.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
+        if (!Mobile) top.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
         sizeOpt = NoFocus(new OptionButton());
         foreach (var s in new[] { "Pequeno", "Médio", "Grande", "Enorme" }) sizeOpt.AddItem(s);
         sizeOpt.TooltipText = "Tamanho do mundo (ajusta-se à forma da janela; volta a escolher depois de mudar o tamanho da janela)";
@@ -170,7 +180,7 @@ public partial class Main : Control
         hintPanel = new PanelContainer { Position = new Vector2(10, 8), Visible = false };
         hintPanel.AddThemeStyleboxOverride("panel", Box("#1d1708ee", 7, "#5a4516"));
         var hb = new HBoxContainer(); hintPanel.AddChild(hb);
-        hintText = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(520, 0) };
+        hintText = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(Mobile ? 420 : 520, 0) };
         hb.AddChild(hintText);
         var hx = NoFocus(new Button { Text = "✕", Flat = true }); hx.Pressed += () => Hint(""); hb.AddChild(hx);
         center.AddChild(hintPanel);
@@ -198,6 +208,7 @@ public partial class Main : Control
         foreach (var c in Cats) tabs.AddTab(c);
         tabs.AddTab("Ferramentas");
         tabs.TabChanged += t => { curTab = (int)t; BuildMats(); };
+        tabs.ClipTabs = true;
         bot.AddChild(tabs);
         matBox = new HFlowContainer(); matBox.AddThemeConstantOverride("h_separation", 5); matBox.AddThemeConstantOverride("v_separation", 5);
         bot.AddChild(matBox);
@@ -276,9 +287,9 @@ public partial class Main : Control
     void SetActive(Sim s)
     {
         view = s;
-        cellBuf = new byte[s.N * 4]; tempBuf = new byte[s.N * 4];
+        cellBuf = new byte[s.N * 4]; tempBuf = new byte[s.N * 2];
         cellImg = Image.CreateFromData(s.W, s.H, false, Image.Format.Rgba8, cellBuf);
-        tempImg = Image.CreateFromData(s.W, s.H, false, Image.Format.Rf, tempBuf);
+        tempImg = Image.CreateFromData(s.W, s.H, false, Image.Format.Rh, tempBuf);
         cellTex = ImageTexture.CreateFromImage(cellImg); tempTex = ImageTexture.CreateFromImage(tempImg);
         world.Texture = cellTex;
         mat.SetShaderParameter("cells", cellTex);
@@ -300,9 +311,12 @@ public partial class Main : Control
     {
         var s = view; var T = s.T; var Sh = s.Sh; var E = s.E; var b = cellBuf;
         for (int i = 0, k = 0; i < s.N; i++, k += 4) { b[k] = T[i]; b[k + 1] = Sh[i]; b[k + 2] = E[i]; b[k + 3] = 255; }
-        Buffer.BlockCopy(s.Tm, 0, tempBuf, 0, s.N * 4);
+        // temperatura em meio float (16 bits): os telemóveis não aceitam texturas float de 32 bits
+        var tb = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, Half>(tempBuf.AsSpan());
+        var tm = s.Tm;
+        for (int i = 0; i < s.N; i++) tb[i] = (Half)tm[i];
         cellImg.SetData(s.W, s.H, false, Image.Format.Rgba8, cellBuf); cellTex.Update(cellImg);
-        tempImg.SetData(s.W, s.H, false, Image.Format.Rf, tempBuf); tempTex.Update(tempImg);
+        tempImg.SetData(s.W, s.H, false, Image.Format.Rh, tempBuf); tempTex.Update(tempImg);
     }
 
     // ---------- desenho por cima ----------
@@ -410,7 +424,7 @@ public partial class Main : Control
     void TogglePause() { paused = !paused; pauseBtn.Text = paused ? "Continuar" : "Pausa"; }
     void ToggleHeat() { heatView = !heatView; heatBtn.SetPressedNoSignal(heatView); mat.SetShaderParameter("view_mode", heatView ? 1 : 0); }
     void ToggleSound() { sons.ToggleMute(); soundBtn.Text = sons.Muted ? "Som: desligado" : "Som: ligado"; }
-    void Hint(string t) { hintText.Text = t; hintPanel.Visible = t != ""; }
+    void Hint(string t) { if (Mobile) t = t.Replace("botão direito", "Borracha, em Ferramentas"); hintText.Text = t; hintPanel.Visible = t != ""; }
 
     void UpdateTip()
     {
@@ -444,7 +458,9 @@ public partial class Main : Control
         tipLabel.Text = $"{name}   {extra}";
         tip.Visible = true;
         tip.ResetSize();
-        var pos = overlay.Position + mouseLocal + new Vector2(16, 16);
+        var pos = overlay.Position + mouseLocal + (Mobile ? new Vector2(-tip.Size.X / 2, -tip.Size.Y - 50) : new Vector2(16, 16));
+        if (Mobile && pos.Y < 4) pos.Y = overlay.Position.Y + mouseLocal.Y + 50;
+        if (pos.X < 4) pos.X = 4;
         if (pos.X + tip.Size.X > center.Size.X - 4) pos.X -= tip.Size.X + 28;
         if (pos.Y + tip.Size.Y > center.Size.Y - 4) pos.Y -= tip.Size.Y + 28;
         tip.Position = pos;

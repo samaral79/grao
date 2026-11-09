@@ -18,7 +18,7 @@ Sandbox de areia ("falling sand") em Godot 4 + C#: pós, líquidos, gases, calor
 
 ## Jogar
 
-Precisa do [Godot 4.7 .NET](https://godotengine.org/download) e do .NET 8 SDK.
+Precisa do [Godot 4.7 .NET](https://godotengine.org/download) e do .NET 9 SDK.
 
 ```bash
 ./jogar.sh            # compila e abre
@@ -26,7 +26,15 @@ Precisa do [Godot 4.7 .NET](https://godotengine.org/download) e do .NET 8 SDK.
 GODOT=/caminho/para/godot ./jogar.sh   # se o Godot estiver noutro sítio
 ```
 
-Controlos: botão esquerdo pinta, direito apaga, roda muda o pincel, Espaço pausa, H vista de calor, M som.
+### Android
+
+```bash
+./apk.sh              # gera export/grao.apk (arm64) e instala-o se houver um telemóvel ligado por USB
+```
+
+Precisa dos export templates do Godot 4.7.2 .NET, do Android SDK (platform-tools e build-tools), de um JDK 17 e do .NET 9 SDK. A keystore de assinatura fica fora do repositório (por omissão em `~/.local/share/grao/`; muda com `GRAO_KEYSTORE`, `GRAO_KEYSTORE_USER` e `GRAO_KEYSTORE_PASSWORD`). No telemóvel a interface fica maior e o ecrã fica deitado; para apagar usa a Borracha (em Ferramentas).
+
+Controlos no PC: botão esquerdo pinta, direito apaga, roda muda o pincel, Espaço pausa, H vista de calor, M som.
 
 ## Como funciona
 

@@ -12,6 +12,12 @@ config/icon="res://icon.svg"
 
 window/size/viewport_width=1600
 window/size/viewport_height=920
+window/stretch/aspect="expand"
+window/handheld/orientation=4
+
+[input_devices]
+
+pointing/emulate_mouse_from_touch=true
 
 [dotnet]
 
@@ -19,6 +25,7 @@ project/assembly_name="Grao"
 
 [rendering]
 
+textures/vram_compression/import_etc2_astc=true
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 environment/defaults/default_clear_color=Color(0.027, 0.031, 0.043, 1)
