@@ -55,13 +55,27 @@ public partial class Sons : Node
         p.Stream = s; p.VolumeDb = db; p.PitchScale = pitch; p.Play();
     }
     public void Ui() => Play(ui, -10, .9f + R() * .2f);
-    public void Spark() { double now = Now(); if (now - tZap > .12) { Play(zap, -14, .9f + R() * .3f); tZap = now; } }
+    public void Spark() { if (paused) return; double now = Now(); if (now - tZap > .12) { Play(zap, -14, .9f + R() * .3f); tZap = now; } }
     static double Now() => Time.GetTicksMsec() / 1000.0;
     static float Log2(int n) => MathF.Log2(Math.Max(1, n));
+
+    // em pausa: corta tudo de imediato (sons curtos e contínuos)
+    bool paused;
+    public void SetPaused(bool p)
+    {
+        if (p == paused) return;
+        paused = p;
+        if (p)
+        {
+            foreach (var pl in pool) pl.Stop();
+            fireDb = buzzDb = -80; fireLoop.VolumeDb = -80; buzzLoop.VolumeDb = -80;
+        }
+    }
 
     // chamado uma vez por frame com o mundo que está à vista
     public void Tick(Sim s, int steps)
     {
+        if (paused) { s.evBoom = s.evBigBoom = s.evPop = s.evZap = s.evSizzle = s.evBuzz = s.evThunder = s.fireCount = 0; return; }
         double now = Now();
         if (s.evBigBoom > 0 && now - tBig > .5) { Play(bigBoom, 0); tBig = now; tBoom = now; }
         else if (s.evBoom > 0 && now - tBoom > .11) { Play(boom, MathF.Min(0, -8 + Log2(s.evBoom) * 1.6f), .8f + R() * .35f); tBoom = now; }
@@ -77,7 +91,7 @@ public partial class Sons : Node
         float fTarget = fire <= 0 ? -80 : MathF.Min(-6, -32 + 9 * MathF.Log10(1 + fire));
         fireDb += (fTarget - fireDb) * (fTarget > fireDb ? .3f : .08f);
         fireLoop.VolumeDb = fireDb;
-        float bTarget = steps > 0 && s.evBuzz > 0 ? -14 : steps == 0 ? buzzDb : -80;
+        float bTarget = steps > 0 && s.evBuzz > 0 ? -14 : -80;
         buzzDb += (bTarget - buzzDb) * .5f;
         buzzLoop.VolumeDb = buzzDb;
         s.evBoom = s.evBigBoom = s.evPop = s.evZap = s.evSizzle = s.evBuzz = s.evThunder = s.fireCount = 0;

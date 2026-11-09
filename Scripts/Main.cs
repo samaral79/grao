@@ -465,9 +465,10 @@ public partial class Main : Control
                 while (acc >= 1 && n < 6) { sim.Step(); acc--; n++; }
                 if (acc > 1) acc = 1;
                 simAcc += (Time.GetTicksUsec() - t0) / 1000.0;
+                sons.SetPaused(false);
                 sons.Tick(sim, n);
             }
-            else sons.Tick(sim, 0);
+            else { sons.SetPaused(true); sons.Tick(sim, 0); }
         }
         else PollBench();
         Upload();

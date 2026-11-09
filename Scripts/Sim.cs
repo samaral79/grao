@@ -350,8 +350,14 @@ public sealed class Sim
                 {
                     int nx = x + dir * s; if (nx < 0 || nx >= W) break;
                     int j = i + dir * s;
-                    if (T[j] == 0) { best = j; if (y + 1 < H && T[j + W] == 0) break; }
-                    else { if (Kind[T[j]] == K_LIQUID && CanSink(t, j)) best = j; break; }
+                    int u = T[j];
+                    // o gás não trava o líquido: troca de lugar com ele como se fosse ar
+                    if (u == 0 || (Kind[u] == K_GAS && S[j] != tick))
+                    {
+                        best = j;
+                        if (y + 1 < H) { int b = T[j + W]; if (b == 0 || Kind[b] == K_GAS) break; }
+                    }
+                    else { if (Kind[u] == K_LIQUID && CanSink(t, j)) best = j; break; }
                 }
                 if (best >= 0) { Move(i, best); return; }
             }
@@ -372,6 +378,8 @@ public sealed class Sim
         }
         if (Dens[t] > .0013f)
         {
+            // gás pesado continua mais leve que qualquer líquido: debaixo de água sobe em bolhas
+            if (y > 0) { int u = i - W; if (Kind[T[u]] == K_LIQUID && S[u] != tick && Rnd() < .5f) { Move(i, u); return; } }
             if (y + 1 < H)
             {
                 int d = i + W;
